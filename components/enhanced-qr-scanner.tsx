@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { QrCode, Camera, CheckCircle, XCircle, MapPin, Clock, AlertTriangle } from "lucide-react"
+import { QrCode, Camera, CheckCircle, XCircle, MapPin, Clock, AlertTriangle, CameraOff } from "lucide-react"
+import QrScanner from "qr-scanner"
 
 interface EnhancedQRScannerProps {
   onScanSuccess?: (data: any) => void
@@ -20,6 +21,55 @@ export function EnhancedQRScanner({ onScanSuccess, onScanError, className, curre
   const [errorMessage, setErrorMessage] = useState("")
   const [attendanceData, setAttendanceData] = useState<any>(null)
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [cameraPermission, setCameraPermission] = useState<"granted" | "denied" | "prompt" | "checking" | null>(null)
+  const [hasCamera, setHasCamera] = useState<boolean | null>(null)
+  
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const qrScannerRef = useRef<QrScanner | null>(null)
+
+  // Check camera availability and permissions
+  useEffect(() => {
+    const checkCameraSupport = async () => {
+      try {
+        const hasCamera = await QrScanner.hasCamera()
+        setHasCamera(hasCamera)
+        
+        if (!hasCamera) {
+          console.log("No camera available on this device")
+          return
+        }
+
+        // Check camera permission
+        if ('permissions' in navigator) {
+          try {
+            const permission = await navigator.permissions.query({ name: 'camera' as PermissionName })
+            setCameraPermission(permission.state as any)
+            console.log("Camera permission state:", permission.state)
+          } catch (error) {
+            console.log("Permission query not supported, will request on scan")
+            setCameraPermission("prompt")
+          }
+        } else {
+          setCameraPermission("prompt")
+        }
+      } catch (error) {
+        console.error("Error checking camera support:", error)
+        setHasCamera(false)
+      }
+    }
+
+    checkCameraSupport()
+  }, [])
+
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (qrScannerRef.current) {
+        qrScannerRef.current.stop()
+        qrScannerRef.current.destroy()
+      }
+    }
+  }, [])
 
   const getCurrentLocation = (): Promise<{ lat: number; lng: number }> => {
     return new Promise((resolve) => {
@@ -37,75 +87,138 @@ export function EnhancedQRScanner({ onScanSuccess, onScanError, className, curre
   }
 
   const startScanning = async () => {
+    if (!hasCamera) {
+      setErrorMessage("No camera available on this device")
+      setScanResult("error")
+      onScanError?.("No camera available")
+      return
+    }
+
     setIsScanning(true)
     setScanResult(null)
     setErrorMessage("")
     setLocation(null)
+    setCameraPermission("checking")
 
     try {
-      console.log("[v0] Starting QR scan with location request")
-      const currentLocation = await getCurrentLocation()
-      setLocation(currentLocation)
+      console.log("[v0] Starting camera-based QR scan")
+      
+      // Get location first
+      const currentLocationData = await getCurrentLocation()
+      setLocation(currentLocationData)
 
-      console.log("[v0] Location obtained:", currentLocation, "Permission:", locationPermission)
+      if (!videoRef.current) {
+        throw new Error("Video element not available")
+      }
 
-      setTimeout(async () => {
-        const mockQrData = `session-123-class-456-${Date.now()}-abc123`
-
-        try {
-          const response = await fetch("/api/qr/validate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              qrData: mockQrData,
-              studentId: "student-123",
-              location: currentLocation,
-            }),
-          })
-
-          const data = await response.json()
-
-          if (data.success) {
-            setScanResult("success")
-            setAttendanceData({
-              className: "Mathematics 101",
-              time: new Date().toLocaleTimeString(),
-              date: new Date().toLocaleDateString(),
-              location: "Room 101",
-            })
-            console.log("[v0] Scan success: Attendance marked successfully")
-            onScanSuccess?.(data)
-
-            setTimeout(() => {
-              setScanResult(null)
-              setAttendanceData(null)
-            }, 10000)
-          } else {
-            setScanResult("error")
-            setErrorMessage(data.error || "Failed to mark attendance")
-            onScanError?.(data.error)
+      // Initialize QR Scanner
+      qrScannerRef.current = new QrScanner(
+        videoRef.current,
+        async (result) => {
+          console.log("[v0] QR Code detected:", result.data)
+          
+          // Stop scanning
+          if (qrScannerRef.current) {
+            qrScannerRef.current.stop()
           }
-        } catch (error) {
-          setScanResult("error")
-          setErrorMessage("Network error. Please try again.")
-          onScanError?.(error instanceof Error ? error.message : "Network error")
-        }
+          setIsScanning(false)
 
-        setIsScanning(false)
-      }, 2000)
-    } catch (error) {
+          // Validate the QR code
+          try {
+            const response = await fetch("/api/qr/validate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                qrData: result.data,
+                studentId: "student-123",
+                location: currentLocationData,
+              }),
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+              setScanResult("success")
+              setAttendanceData({
+                className: "Mathematics 101",
+                time: new Date().toLocaleTimeString(),
+                date: new Date().toLocaleDateString(),
+                location: "Room 101",
+              })
+              console.log("[v0] Scan success: Attendance marked successfully")
+              onScanSuccess?.(data)
+
+              setTimeout(() => {
+                setScanResult(null)
+                setAttendanceData(null)
+              }, 10000)
+            } else {
+              setScanResult("error")
+              setErrorMessage(data.error || "Failed to mark attendance")
+              onScanError?.(data.error)
+            }
+          } catch (error) {
+            setScanResult("error")
+            setErrorMessage("Network error. Please try again.")
+            onScanError?.(error instanceof Error ? error.message : "Network error")
+          }
+        },
+        {
+          onDecodeError: (error) => {
+            // Don't log every decode error, only actual problems
+            const errorMsg = typeof error === 'string' ? error : error.message
+            if (!errorMsg.includes('No QR code found')) {
+              console.log("[v0] QR decode error:", errorMsg)
+            }
+          },
+          highlightScanRegion: true,
+          highlightCodeOutline: true,
+          maxScansPerSecond: 5,
+        }
+      )
+
+      // Start the scanner
+      await qrScannerRef.current.start()
+      setCameraPermission("granted")
+      console.log("[v0] Camera started successfully")
+
+    } catch (error: any) {
+      console.error("[v0] Camera error:", error)
       setIsScanning(false)
       setScanResult("error")
-      setErrorMessage("Unable to access location. Please enable location access.")
-      console.log("[v0] Location error:", error)
+      
+      if (error.name === 'NotAllowedError' || error.message.includes('Permission denied')) {
+        setCameraPermission("denied")
+        setErrorMessage("Camera permission denied. Please allow camera access to scan QR codes.")
+        onScanError?.("Camera permission denied")
+      } else if (error.name === 'NotFoundError') {
+        setErrorMessage("No camera found on this device.")
+        onScanError?.("No camera found")
+      } else if (error.name === 'NotSupportedError') {
+        setErrorMessage("Camera not supported in this browser.")
+        onScanError?.("Camera not supported")
+      } else {
+        setCameraPermission("denied")
+        setErrorMessage("Failed to access camera. Please check permissions and try again.")
+        onScanError?.(error.message || "Camera access failed")
+      }
     }
   }
 
+  const stopScanning = () => {
+    if (qrScannerRef.current) {
+      qrScannerRef.current.stop()
+    }
+    setIsScanning(false)
+  }
+
   const resetScanner = () => {
+    stopScanning()
     setScanResult(null)
     setErrorMessage("")
     setAttendanceData(null)
     setLocation(null)
+    setCameraPermission("prompt")
     console.log("[v0] Scanner reset")
   }
 
@@ -120,38 +233,105 @@ export function EnhancedQRScanner({ onScanSuccess, onScanError, className, curre
       <CardContent className="text-center space-y-4">
         {!isScanning && !scanResult && (
           <div className="space-y-4">
-            <div className="w-64 h-64 mx-auto bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25">
-              <Camera className="h-16 w-16 text-muted-foreground" />
+            <div className="w-64 h-64 mx-auto bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 relative">
+              {hasCamera === false ? (
+                <div className="text-center">
+                  <CameraOff className="h-16 w-16 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No camera available</p>
+                  <p className="text-xs text-muted-foreground mt-1">Use a device with camera</p>
+                </div>
+              ) : cameraPermission === "denied" ? (
+                <div className="text-center">
+                  <CameraOff className="h-16 w-16 text-red-400 mx-auto mb-2" />
+                  <p className="text-sm text-red-600">Camera access denied</p>
+                  <p className="text-xs text-red-500 mt-1">Enable in browser settings</p>
+                </div>
+              ) : hasCamera === null ? (
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">Checking camera...</p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <Camera className="h-16 w-16 text-primary mx-auto mb-2 animate-pulse" />
+                  <p className="text-sm text-foreground font-medium">Ready to scan QR code</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click button to start camera</p>
+                </div>
+              )}
             </div>
-            <Button onClick={startScanning} size="lg" className="w-full">
-              <QrCode className="mr-2 h-4 w-4" />
-              Scan Attendance QR
+            
+            <Button 
+              onClick={startScanning} 
+              size="lg" 
+              className="w-full"
+              disabled={hasCamera === false}
+            >
+              <Camera className="mr-2 h-4 w-4" />
+              {hasCamera === false ? "No Camera Available" : "Start Camera & Scan QR"}
             </Button>
+            
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>• Position QR code in camera view</p>
+              <p>• Allow camera access when prompted</p>
+              <p>• Position QR code clearly in camera view</p>
               <p>• Location verification for security</p>
-              <p>• Demo mode available if location blocked</p>
+              {cameraPermission === "denied" && (
+                <p className="text-orange-600">• Please enable camera in browser settings</p>
+              )}
             </div>
           </div>
         )}
 
         {isScanning && (
           <div className="space-y-4">
-            <div className="w-64 h-64 mx-auto bg-primary/10 rounded-lg flex items-center justify-center relative overflow-hidden">
-              <div className="absolute inset-4 border-2 border-primary rounded-lg animate-pulse"></div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 border-2 border-primary animate-ping rounded-lg"></div>
-              <QrCode className="h-16 w-16 text-primary animate-pulse" />
-            </div>
-            <div className="space-y-2">
-              <p className="font-medium">Scanning QR Code...</p>
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span>Requesting location access...</span>
+            <div className="relative w-64 h-64 mx-auto rounded-lg overflow-hidden bg-black">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                playsInline
+                muted
+              />
+              {/* Scan overlay */}
+              <div className="absolute inset-0 border-2 border-primary rounded-lg">
+                <div className="absolute inset-4 border-2 border-primary/50 rounded-lg animate-pulse">
+                  {/* Corner indicators */}
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-primary"></div>
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-primary"></div>
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary"></div>
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary"></div>
+                </div>
               </div>
-              {locationPermission === null && (
-                <p className="text-xs text-orange-600">Please allow location access when prompted</p>
+              
+              {/* Camera permission status */}
+              {cameraPermission === "checking" && (
+                <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent mx-auto mb-2"></div>
+                    <p className="text-sm">Requesting camera access...</p>
+                  </div>
+                </div>
               )}
             </div>
+            
+            <div className="space-y-2 text-center">
+              <p className="font-medium">Scanning for QR Code...</p>
+              <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Camera className="h-3 w-3" />
+                  <span>Camera Active</span>
+                </div>
+                {currentLocation && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    <span>Location Ready</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">Position QR code in the center of the frame</p>
+            </div>
+            
+            <Button onClick={stopScanning} variant="outline" size="sm" className="w-full">
+              Stop Scanning
+            </Button>
           </div>
         )}
 
@@ -200,6 +380,13 @@ export function EnhancedQRScanner({ onScanSuccess, onScanError, className, curre
                   Location Verified
                 </Badge>
               )}
+              
+              {cameraPermission === "granted" && (
+                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                  <Camera className="mr-1 h-3 w-3" />
+                  Camera Verified
+                </Badge>
+              )}
 
               <Button variant="outline" size="sm" onClick={resetScanner}>
                 Scan Another QR Code
@@ -223,6 +410,13 @@ export function EnhancedQRScanner({ onScanSuccess, onScanError, className, curre
                 <Badge variant="outline" className="text-orange-600 border-orange-200">
                   <Clock className="mr-1 h-3 w-3" />
                   QR Code Expired
+                </Badge>
+              )}
+
+              {errorMessage.includes("Camera") && (
+                <Badge variant="outline" className="text-red-600 border-red-200">
+                  <CameraOff className="mr-1 h-3 w-3" />
+                  Camera Error
                 </Badge>
               )}
 
