@@ -41,10 +41,10 @@ export default function LoginPage() {
   }
 
   const sampleCredentials = [
-    { role: "teacher", email: "teacher@edumark.com", name: "Dr. Sarah Johnson" },
-    { role: "student", email: "student@edumark.com", name: "John Smith" },
-    { role: "teacher", email: "teacher2@edumark.com", name: "Prof. Michael Brown" },
-    { role: "student", email: "student2@edumark.com", name: "Emily Davis" },
+    { role: "teacher", email: "teacher@edumark.com", name: "Dr. Priya Sharma" },
+    { role: "student", email: "student@edumark.com", name: "Arjun Patel" },
+    { role: "teacher", email: "teacher2@edumark.com", name: "Prof. Rajesh Kumar" },
+    { role: "student", email: "student2@edumark.com", name: "Meera Singh" },
   ]
 
   const fillSampleCredentials = (email: string, role: "teacher" | "student") => {

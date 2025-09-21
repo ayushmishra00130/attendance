@@ -17,7 +17,7 @@ interface EnhancedQRGeneratorProps {
 export function EnhancedQRGenerator({ sessionId, classId, className, onStudentCountUpdate }: EnhancedQRGeneratorProps) {
   const [qrData, setQrData] = useState("")
   const [qrCodeUrl, setQrCodeUrl] = useState("")
-  const [timeLeft, setTimeLeft] = useState(30)
+  const [timeLeft, setTimeLeft] = useState(5)
   const [isActive, setIsActive] = useState(false)
   const [studentsPresent, setStudentsPresent] = useState(0)
   const [totalStudents, setTotalStudents] = useState(48)
@@ -65,7 +65,7 @@ export function EnhancedQRGenerator({ sessionId, classId, className, onStudentCo
           })
           console.log("QR Image generated:", qrImageUrl.substring(0, 50) + "...") // Debug log
           setQrCodeUrl(qrImageUrl)
-          setTimeLeft(30)
+          setTimeLeft(5)
           setIsActive(true)
           // Only show fullscreen on initial generation, not on auto-refresh
           if (!isActive) {
@@ -74,7 +74,7 @@ export function EnhancedQRGenerator({ sessionId, classId, className, onStudentCo
         } catch (qrError) {
           console.error("Failed to generate QR code image:", qrError)
           // Still set active even if QR generation fails
-          setTimeLeft(30)
+          setTimeLeft(5)
           setIsActive(true)
         }
       } else {
@@ -110,7 +110,7 @@ export function EnhancedQRGenerator({ sessionId, classId, className, onStudentCo
         setTimeLeft((prev) => {
           if (prev <= 1) {
             generateQRCode() // Auto-refresh QR code
-            return 30
+            return 5
           }
           return prev - 1
         })
@@ -233,7 +233,7 @@ export function EnhancedQRGenerator({ sessionId, classId, className, onStudentCo
                 setIsActive(false)
                 setQrCodeUrl("")
                 setQrData("")
-                setTimeLeft(30)
+                setTimeLeft(5)
               }} 
               variant="outline" 
               size="sm" 
@@ -327,7 +327,7 @@ export function EnhancedQRGenerator({ sessionId, classId, className, onStudentCo
                 setIsActive(false)
                 setQrCodeUrl("")
                 setQrData("")
-                setTimeLeft(30)
+                setTimeLeft(5)
                 setShowFullscreen(false)
               }}
               className="flex-1"

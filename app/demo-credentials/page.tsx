@@ -13,7 +13,7 @@ export default function DemoCredentialsPage() {
   const sampleUsers = [
     {
       id: "1",
-      name: "Dr. Sarah Johnson",
+      name: "Dr. Priya Sharma",
       email: "teacher@edumark.com",
       role: "teacher",
       subject: "Computer Science",
@@ -24,7 +24,7 @@ export default function DemoCredentialsPage() {
     },
     {
       id: "2",
-      name: "John Smith",
+      name: "Arjun Patel",
       email: "student@edumark.com",
       role: "student",
       studentId: "CS2024001",
@@ -36,7 +36,7 @@ export default function DemoCredentialsPage() {
     },
     {
       id: "3",
-      name: "Prof. Michael Brown",
+      name: "Prof. Rajesh Kumar",
       email: "teacher2@edumark.com",
       role: "teacher",
       subject: "Mathematics",
@@ -47,7 +47,7 @@ export default function DemoCredentialsPage() {
     },
     {
       id: "4",
-      name: "Emily Davis",
+      name: "Meera Singh",
       email: "student2@edumark.com",
       role: "student",
       studentId: "CS2024002",

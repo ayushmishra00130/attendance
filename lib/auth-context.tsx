@@ -24,28 +24,28 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const SAMPLE_USERS: User[] = [
   {
     id: "1",
-    name: "Dr. Sarah Johnson",
+    name: "Dr. Priya Sharma",
     email: "teacher@edumark.com",
     role: "teacher",
     subject: "Computer Science",
   },
   {
     id: "2",
-    name: "John Smith",
+    name: "Arjun Patel",
     email: "student@edumark.com",
     role: "student",
     studentId: "CS2024001",
   },
   {
     id: "3",
-    name: "Prof. Michael Brown",
+    name: "Prof. Rajesh Kumar",
     email: "teacher2@edumark.com",
     role: "teacher",
     subject: "Mathematics",
   },
   {
     id: "4",
-    name: "Emily Davis",
+    name: "Meera Singh",
     email: "student2@edumark.com",
     role: "student",
     studentId: "CS2024002",

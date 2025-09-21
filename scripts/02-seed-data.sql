@@ -1,13 +1,13 @@
 -- Adding sample data for testing
 -- Insert sample users
 INSERT INTO users (email, name, role, student_id) VALUES
-('teacher@example.com', 'Dr. Sarah Johnson', 'teacher', NULL),
+('teacher@example.com', 'Dr. Priya Sharma', 'teacher', NULL),
 ('admin@example.com', 'Admin User', 'admin', NULL),
-('student1@example.com', 'Alice Smith', 'student', 'STU001'),
-('student2@example.com', 'Bob Wilson', 'student', 'STU002'),
-('student3@example.com', 'Carol Davis', 'student', 'STU003'),
-('student4@example.com', 'David Brown', 'student', 'STU004'),
-('student5@example.com', 'Emma Jones', 'student', 'STU005')
+('student1@example.com', 'Arjun Patel', 'student', 'STU001'),
+('student2@example.com', 'Kavya Menon', 'student', 'STU002'),
+('student3@example.com', 'Rohan Gupta', 'student', 'STU003'),
+('student4@example.com', 'Anjali Reddy', 'student', 'STU004'),
+('student5@example.com', 'Vikram Joshi', 'student', 'STU005')
 ON CONFLICT (email) DO NOTHING;
 
 -- Insert sample classes
